@@ -1,0 +1,47 @@
+# Django and Django Extensions
+Django>=5.2,<6.0
+asgiref>=3.8.1
+sqlparse>=0.5.3
+django-crispy-forms>=2.4
+crispy-bootstrap5>=2025.4
+django-widget-tweaks>=1.5.0
+django-import-export>=4.3.7
+
+# Database
+# If using PostgreSQL, uncomment the following line:
+# psycopg2-binary>=2.9.9
+
+# Image Processing
+Pillow>=11.2.1
+
+# PDF Generation
+xhtml2pdf>=0.2.17
+reportlab>=4.4.0
+arabic-reshaper>=3.0.0
+python-bidi>=0.6.6
+PyPDF>=5.4.0
+svglib>=1.5.1
+
+# Excel Support
+XlsxWriter>=3.2.3
+tablib>=3.8.0
+
+# Security and Authentication
+cryptography>=44.0.2
+pyHanko>=0.26.0
+pyhanko-certvalidator>=0.26.8
+
+# Utilities
+qrcode>=8.1
+requests>=2.32.3
+PyYAML>=6.0.2
+six>=1.17.0
+tzdata>=2025.2
+tzlocal>=5.3.1
+chardet>=5.2.0
+
+# Development Tools
+# Uncomment these for development environment
+# django-debug-toolbar>=4.3.0
+# django-extensions>=3.2.3
+# ipython>=8.18.1

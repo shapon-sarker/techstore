@@ -1,0 +1,503 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Returns & Warranty Management - TechStore{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">Returns & Warranty Management</h1>
+            <p class="text-muted">Track and manage product returns and warranty claims</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'inventory:return_create' %}" class="btn btn-primary me-2">
+                <i class="fas fa-undo"></i> New Return
+            </a>
+            <a href="{% url 'inventory:warranty_create' %}" class="btn btn-success">
+                <i class="fas fa-shield-alt"></i> New Warranty Claim
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="row">
+        <div class="col">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-primary">Pending Returns</h6>
+                            <h3 class="mb-0">{{ pending_returns_count }}</h3>
+                        </div>
+                        <div class="bg-primary bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-clock text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-warning">Active Warranty Claims</h6>
+                            <h3 class="mb-0">{{ active_warranties_count }}</h3>
+                        </div>
+                        <div class="bg-warning bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-tools text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-success">Completed Returns</h6>
+                            <h3 class="mb-0">{{ completed_returns_count }}</h3>
+                        </div>
+                        <div class="bg-success bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-check-circle text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-info">Total Value</h6>
+                            <h3 class="mb-0">${{ total_value|floatformat:2 }}</h3>
+                        </div>
+                        <div class="bg-info bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-dollar-sign text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="returns-tab" data-bs-toggle="tab" data-bs-target="#returns" type="button" role="tab">
+                <i class="fas fa-undo me-2"></i>Returns
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="warranty-tab" data-bs-toggle="tab" data-bs-target="#warranty" type="button" role="tab">
+                <i class="fas fa-shield-alt me-2"></i>Warranty Claims
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="myTabContent">
+        <!-- Returns Tab -->
+        <div class="tab-pane fade show active" id="returns" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">Product Returns</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="returnSearch" placeholder="Search returns...">
+                                <button class="btn btn-outline-secondary" type="button" id="returnSearchBtn">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="returnsTable">
+                            <thead>
+                                <tr>
+                                    <th>Return ID</th>
+                                    <th>Product</th>
+                                    <th>Customer</th>
+                                    <th>Reason</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for return in returns %}
+                                <tr>
+                                    <td>#{{ return.id }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if return.product.image %}
+                                            <img src="{{ return.product.image.url }}" alt="{{ return.product.name }}" 
+                                                 class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                            {% else %}
+                                            <div class="rounded me-2 bg-light d-flex align-items-center justify-content-center" 
+                                                 style="width: 40px; height: 40px;">
+                                                <i class="fas fa-box text-muted"></i>
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <div class="fw-bold">{{ return.product.name }}</div>
+                                                <small class="text-muted">Serial: {{ return.serial_number }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ return.customer.name }}</td>
+                                    <td>{{ return.reason }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ return.status_color }}">
+                                            {{ return.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ return.created_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'inventory:return_detail' return.id %}" 
+                                               class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" 
+                                                    data-bs-target="#processReturnModal" data-return-id="{{ return.id }}"
+                                                    data-bs-toggle="tooltip" title="Process Return">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" 
+                                                    data-bs-target="#rejectReturnModal" data-return-id="{{ return.id }}"
+                                                    data-bs-toggle="tooltip" title="Reject Return">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="fas fa-check-circle fa-3x mb-3"></i>
+                                            <h5>No Returns Found</h5>
+                                            <p class="mb-0">There are no pending returns at this time.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Warranty Tab -->
+        <div class="tab-pane fade" id="warranty" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">Warranty Claims</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="warrantySearch" placeholder="Search claims...">
+                                <button class="btn btn-outline-secondary" type="button" id="warrantySearchBtn">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="warrantyTable">
+                            <thead>
+                                <tr>
+                                    <th>Claim ID</th>
+                                    <th>Product</th>
+                                    <th>Customer</th>
+                                    <th>Issue</th>
+                                    <th>Status</th>
+                                    <th>Warranty End</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for claim in warranty_claims %}
+                                <tr>
+                                    <td>#{{ claim.id }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if claim.product.image %}
+                                            <img src="{{ claim.product.image.url }}" alt="{{ claim.product.name }}" 
+                                                 class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                            {% else %}
+                                            <div class="rounded me-2 bg-light d-flex align-items-center justify-content-center" 
+                                                 style="width: 40px; height: 40px;">
+                                                <i class="fas fa-box text-muted"></i>
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <div class="fw-bold">{{ claim.product.name }}</div>
+                                                <small class="text-muted">Serial: {{ claim.serial_number }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ claim.customer.name }}</td>
+                                    <td>{{ claim.issue }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ claim.status_color }}">
+                                            {{ claim.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="{% if claim.is_warranty_expired %}text-danger{% endif %}">
+                                            {{ claim.warranty_end_date|date:"M d, Y" }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'inventory:warranty_detail' claim.id %}" 
+                                               class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" 
+                                                    data-bs-target="#processWarrantyModal" data-claim-id="{{ claim.id }}"
+                                                    data-bs-toggle="tooltip" title="Process Claim">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" 
+                                                    data-bs-target="#rejectWarrantyModal" data-claim-id="{{ claim.id }}"
+                                                    data-bs-toggle="tooltip" title="Reject Claim">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="fas fa-check-circle fa-3x mb-3"></i>
+                                            <h5>No Warranty Claims</h5>
+                                            <p class="mb-0">There are no active warranty claims at this time.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Process Return Modal -->
+<div class="modal fade" id="processReturnModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Process Return</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="processReturnForm">
+                    <div class="mb-3">
+                        <label class="form-label">Action</label>
+                        <select class="form-select" name="action" required>
+                            <option value="refund">Refund</option>
+                            <option value="replace">Replace</option>
+                            <option value="repair">Repair</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="processReturnBtn">Process</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Process Warranty Modal -->
+<div class="modal fade" id="processWarrantyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Process Warranty Claim</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="processWarrantyForm">
+                    <div class="mb-3">
+                        <label class="form-label">Action</label>
+                        <select class="form-select" name="action" required>
+                            <option value="repair">Repair</option>
+                            <option value="replace">Replace</option>
+                            <option value="refund">Refund</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Estimated Cost</label>
+                        <input type="number" class="form-control" name="estimated_cost" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="processWarrantyBtn">Process</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .nav-tabs .nav-link {
+        color: #6c757d;
+    }
+    .nav-tabs .nav-link.active {
+        color: #0d6efd;
+        font-weight: 500;
+    }
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,0,0,.02);
+    }
+    .badge {
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+
+        // Search functionality for returns
+        const returnSearch = document.getElementById('returnSearch');
+        const returnSearchBtn = document.getElementById('returnSearchBtn');
+        const returnsTable = document.getElementById('returnsTable');
+        const returnRows = returnsTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        function filterReturns() {
+            const searchText = returnSearch.value.toLowerCase();
+            for (let row of returnRows) {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchText) ? '' : 'none';
+            }
+        }
+
+        returnSearchBtn.addEventListener('click', filterReturns);
+        returnSearch.addEventListener('keyup', filterReturns);
+
+        // Search functionality for warranty claims
+        const warrantySearch = document.getElementById('warrantySearch');
+        const warrantySearchBtn = document.getElementById('warrantySearchBtn');
+        const warrantyTable = document.getElementById('warrantyTable');
+        const warrantyRows = warrantyTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        function filterWarranty() {
+            const searchText = warrantySearch.value.toLowerCase();
+            for (let row of warrantyRows) {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchText) ? '' : 'none';
+            }
+        }
+
+        warrantySearchBtn.addEventListener('click', filterWarranty);
+        warrantySearch.addEventListener('keyup', filterWarranty);
+
+        // Process Return Modal
+        const processReturnModal = document.getElementById('processReturnModal');
+        processReturnModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const returnId = button.getAttribute('data-return-id');
+            const processBtn = document.getElementById('processReturnBtn');
+            
+            processBtn.onclick = function() {
+                const form = document.getElementById('processReturnForm');
+                const formData = new FormData(form);
+                formData.append('return_id', returnId);
+                
+                fetch('/api/inventory/process-return/', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error processing return: ' + data.message);
+                    }
+                });
+            };
+        });
+
+        // Process Warranty Modal
+        const processWarrantyModal = document.getElementById('processWarrantyModal');
+        processWarrantyModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const claimId = button.getAttribute('data-claim-id');
+            const processBtn = document.getElementById('processWarrantyBtn');
+            
+            processBtn.onclick = function() {
+                const form = document.getElementById('processWarrantyForm');
+                const formData = new FormData(form);
+                formData.append('claim_id', claimId);
+                
+                fetch('/api/inventory/process-warranty/', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error processing warranty claim: ' + data.message);
+                    }
+                });
+            };
+        });
+    });
+</script>
+{% endblock %} 

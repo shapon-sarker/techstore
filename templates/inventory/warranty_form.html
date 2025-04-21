@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}New Warranty Claim - TechStore{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">New Warranty Claim</h1>
+            <p class="text-muted">Create a new product warranty claim</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'inventory:warranty_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Warranty Claims
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" id="warrantyForm">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Create Claim
+                            </button>
+                            <a href="{% url 'inventory:warranty_list' %}" class="btn btn-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Warranty Information</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-3">
+                            <i class="fas fa-calendar-check text-primary me-2"></i>
+                            Standard warranty period: 12 months
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                            Warranty does not cover accidental damage
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-tools text-success me-2"></i>
+                            Repairs are performed by authorized service centers
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-clock text-info me-2"></i>
+                            Typical repair time: 5-7 business days
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('warrantyForm');
+        const productSelect = document.getElementById('id_product');
+        const serialNumberSelect = document.getElementById('id_serial_number');
+
+        // Update serial numbers when product changes
+        productSelect.addEventListener('change', function() {
+            const productId = this.value;
+            if (productId) {
+                fetch(`/api/inventory/product/${productId}/serial-numbers/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        serialNumberSelect.innerHTML = '';
+                        data.forEach(serial => {
+                            const option = document.createElement('option');
+                            option.value = serial.id;
+                            option.textContent = serial.serial_number;
+                            serialNumberSelect.appendChild(option);
+                        });
+                    });
+            }
+        });
+    });
+</script>
+{% endblock %} 

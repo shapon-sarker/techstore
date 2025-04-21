@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Stock Levels - TechStore{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="card-title mb-0">
+                            <i class="fas fa-boxes"></i> Stock Levels
+                        </h3>
+                        <div class="btn-group">
+                            <a href="{% url 'inventory:transaction_create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> New Transaction
+                            </a>
+                            <a href="{% url 'inventory:low_stock_list' %}" class="btn btn-warning">
+                                <i class="fas fa-exclamation-triangle"></i> Low Stock
+                            </a>
+                            <a href="{% url 'inventory:out_of_stock_list' %}" class="btn btn-danger">
+                                <i class="fas fa-times-circle"></i> Out of Stock
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" name="q" class="form-control" placeholder="Search products..." value="{{ request.GET.q }}">
+                        </div>
+                        <div class="col-md-3">
+                            <select name="category" class="form-select">
+                                <option value="">All Categories</option>
+                                {% for category in categories %}
+                                    <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"i" %}selected{% endif %}>
+                                        {{ category.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="brand" class="form-select">
+                                <option value="">All Brands</option>
+                                {% for brand in brands %}
+                                    <option value="{{ brand.id }}" {% if request.GET.brand == brand.id|stringformat:"i" %}selected{% endif %}>
+                                        {{ brand.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter"></i> Filter
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Level List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    {% if products %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Image</th>
+                                        <th>Name</th>
+                                        <th>Category</th>
+                                        <th>Brand</th>
+                                        <th>Current Stock</th>
+                                        <th>Low Stock Alert</th>
+                                        <th>Last Transaction</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for product in products %}
+                                        <tr class="{% if product.stock_level <= 0 %}table-danger{% elif product.stock_level <= product.low_stock_alert %}table-warning{% endif %}">
+                                            <td>
+                                                {% if product.images.first %}
+                                                    <img src="{{ product.images.first.image.url }}" alt="{{ product.name }}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
+                                                {% else %}
+                                                    <img src="{% static 'images/default-product.png' %}" alt="No Image" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ product.name }}</td>
+                                            <td>{{ product.category.name }}</td>
+                                            <td>{{ product.brand.name }}</td>
+                                            <td>{{ product.stock_level }}</td>
+                                            <td>{{ product.low_stock_alert }}</td>
+                                            <td>{{ product.last_transaction|default:"No transactions" }}</td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <a href="{% url 'inventory:transaction_create' %}?product={{ product.pk }}" class="btn btn-sm btn-primary">
+                                                        <i class="fas fa-plus"></i> Add Stock
+                                                    </a>
+                                                    <a href="{% url 'products:detail' product.pk %}" class="btn btn-sm btn-info">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No products found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

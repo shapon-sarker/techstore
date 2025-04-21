@@ -1,0 +1,447 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - TechStore{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% else %}
+    <div class="row">
+        <!-- Left Sidebar -->
+        <div class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse" style="min-height: calc(100vh - 56px);">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'users:dashboard' %}">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'products:list' %}">
+                            <i class="fas fa-box me-2"></i>
+                            Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'products:category_list' %}">
+                            <i class="fas fa-tags me-2"></i>
+                            Categories
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'products:brand_list' %}">
+                            <i class="fas fa-trademark me-2"></i>
+                            Brands
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inventory:stock_level_list' %}">
+                            <i class="fas fa-boxes me-2"></i>
+                            Inventory
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'sales:create' %}">
+                            <i class="fas fa-shopping-cart me-2"></i>
+                            New Sale
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inventory:return_list' %}">
+                            <i class="fas fa-undo me-2"></i>
+                            Returns
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inventory:warranty_list' %}">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            Warranty
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'reports:dashboard' %}">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            Reports
+                        </a>
+                    </li>
+                </ul>
+
+                <!-- User Profile Section -->
+                <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                    <span>User Account</span>
+                </h6>
+                <ul class="nav flex-column mb-2">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'users:profile' %}">
+                            <i class="fas fa-user me-2"></i>
+                            Profile
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'users:preferences' %}">
+                            <i class="fas fa-cog me-2"></i>
+                            Settings
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9 col-lg-10 ms-sm-auto px-md-4">
+            <!-- Welcome Section -->
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Welcome, {{ request.user.get_full_name|default:request.user.username }}!</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <a href="{% url 'reports:dashboard' %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-chart-line"></i> Analytics
+                        </a>
+                        <a href="{% url 'inventory:stock_level_list' %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-boxes"></i> Inventory
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Cards Row -->
+            <div class="row g-4 mb-4">
+                <!-- Total Users Card -->
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="card text-white bg-primary h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title mb-0">Total Users</h6>
+                                    <h2 class="mt-2 mb-0">{{ total_users }}</h2>
+                                    <small>Active: {{ active_users }}</small>
+                                </div>
+                                <div class="avatar avatar-stats bg-translucent-primary">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Staff Members Card -->
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="card text-white bg-success h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title mb-0">Staff Members</h6>
+                                    <h2 class="mt-2 mb-0">{{ staff_users }}</h2>
+                                    <small>Admins: {{ admin_users }}</small>
+                                </div>
+                                <div class="avatar avatar-stats bg-translucent-success">
+                                    <i class="fas fa-user-tie"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions Card -->
+                <div class="col-12 col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h6 class="card-title">Quick Actions</h6>
+                            <div class="d-grid gap-2 d-md-flex mt-3">
+                                <a href="{% url 'products:create' %}" class="btn btn-outline-primary flex-fill">
+                                    <i class="fas fa-plus"></i> New Product
+                                </a>
+                                <a href="{% url 'sales:create' %}" class="btn btn-outline-success flex-fill">
+                                    <i class="fas fa-shopping-cart"></i> New Sale
+                                </a>
+                                <a href="{% url 'inventory:transaction_create' %}" class="btn btn-outline-info flex-fill">
+                                    <i class="fas fa-boxes"></i> Stock Entry
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activities -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Recent Activities</h5>
+                    {% if recent_activities %}
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#activitiesCollapse">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="collapse show" id="activitiesCollapse">
+                    <div class="card-body">
+                        {% if recent_activities %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>User</th>
+                                            <th>Action</th>
+                                            <th>Date</th>
+                                            <th>Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for activity in recent_activities %}
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        {% if activity.user.profile_picture %}
+                                                            <img src="{{ activity.user.profile_picture.url }}" alt="" class="rounded-circle me-2" style="width: 32px; height: 32px;">
+                                                        {% else %}
+                                                            <i class="fas fa-user-circle me-2" style="font-size: 32px;"></i>
+                                                        {% endif %}
+                                                        {{ activity.user.username }}
+                                                    </div>
+                                                </td>
+                                                <td>{{ activity.action }}</td>
+                                                <td>{{ activity.created_at|date:"M d, Y H:i" }}</td>
+                                                <td>
+                                                    {% if activity.details %}
+                                                        <span class="text-muted">{{ activity.details|truncatechars:50 }}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted mb-0">No recent activities found.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Management Section -->
+            <div class="row g-4">
+                <!-- Stock Levels -->
+                <div class="col-12 col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Stock Levels</h5>
+                            <a href="{% url 'inventory:stock_level_list' %}" class="btn btn-sm btn-primary">View All</a>
+                        </div>
+                        <div class="card-body">
+                            {% if stock_levels %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Product</th>
+                                                <th>Quantity</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for stock in stock_levels %}
+                                                <tr>
+                                                    <td>{{ stock.product.name }}</td>
+                                                    <td>{{ stock.quantity }}</td>
+                                                    <td>
+                                                        {% if stock.quantity <= stock.minimum_stock %}
+                                                            <span class="badge bg-danger">Low Stock</span>
+                                                        {% else %}
+                                                            <span class="badge bg-success">In Stock</span>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <p class="text-muted mb-0">No stock data available.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Stock Transactions -->
+                <div class="col-12 col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Recent Stock Transactions</h5>
+                            <a href="{% url 'inventory:transaction_list' %}" class="btn btn-sm btn-primary">View All</a>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_transactions %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Product</th>
+                                                <th>Type</th>
+                                                <th>Quantity</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for transaction in recent_transactions %}
+                                                <tr>
+                                                    <td>{{ transaction.created_at|date:"M d, Y" }}</td>
+                                                    <td>{{ transaction.product.name }}</td>
+                                                    <td>
+                                                        {% if transaction.transaction_type == 'PURCHASE' %}
+                                                            <span class="badge bg-success">Purchase</span>
+                                                        {% elif transaction.transaction_type == 'SALE' %}
+                                                            <span class="badge bg-primary">Sale</span>
+                                                        {% elif transaction.transaction_type == 'RETURN' %}
+                                                            <span class="badge bg-warning">Return</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">Adjustment</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>{{ transaction.quantity }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <p class="text-muted mb-0">No recent transactions.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Returns and Warranty -->
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Returns & Warranty Claims</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-4">
+                                <!-- Recent Returns -->
+                                <div class="col-12 col-lg-6">
+                                    <h6>Recent Returns</h6>
+                                    {% if recent_returns %}
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Date</th>
+                                                        <th>Product</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for return in recent_returns %}
+                                                        <tr>
+                                                            <td>{{ return.created_at|date:"M d, Y" }}</td>
+                                                            <td>{{ return.product.name }}</td>
+                                                            <td>
+                                                                <span class="badge bg-{{ return.status|lower }}">
+                                                                    {{ return.get_status_display }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted mb-0">No recent returns.</p>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Recent Warranty Claims -->
+                                <div class="col-12 col-lg-6">
+                                    <h6>Recent Warranty Claims</h6>
+                                    {% if recent_warranty_claims %}
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Date</th>
+                                                        <th>Product</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for claim in recent_warranty_claims %}
+                                                        <tr>
+                                                            <td>{{ claim.created_at|date:"M d, Y" }}</td>
+                                                            <td>{{ claim.product.name }}</td>
+                                                            <td>
+                                                                <span class="badge bg-{{ claim.status|lower }}">
+                                                                    {{ claim.get_status_display }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted mb-0">No recent warranty claims.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sidebar {
+        box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+    }
+    .sidebar .nav-link {
+        color: #333;
+        padding: .5rem 1rem;
+    }
+    .sidebar .nav-link.active {
+        color: #0d6efd;
+        background-color: rgba(13, 110, 253, .1);
+    }
+    .sidebar .nav-link:hover {
+        color: #0d6efd;
+        background-color: rgba(13, 110, 253, .05);
+    }
+    .avatar-stats {
+        width: 45px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+    .avatar-stats i {
+        font-size: 1.5rem;
+    }
+    .bg-translucent-primary {
+        background-color: rgba(255, 255, 255, .2);
+    }
+    .bg-translucent-success {
+        background-color: rgba(255, 255, 255, .2);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize all tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>
+{% endblock %} 

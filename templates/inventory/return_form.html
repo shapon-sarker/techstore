@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}New Return - TechStore{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">New Return</h1>
+            <p class="text-muted">Create a new product return request</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'inventory:return_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Returns
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" id="returnForm">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Create Return
+                            </button>
+                            <a href="{% url 'inventory:return_list' %}" class="btn btn-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Return Guidelines</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-3">
+                            <i class="fas fa-info-circle text-primary me-2"></i>
+                            Returns must be initiated within 30 days of purchase
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-box text-warning me-2"></i>
+                            Product must be in original packaging
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-receipt text-success me-2"></i>
+                            Proof of purchase is required
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-tools text-info me-2"></i>
+                            Defective products will be repaired or replaced
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('returnForm');
+        const productSelect = document.getElementById('id_product');
+        const serialNumberSelect = document.getElementById('id_serial_number');
+
+        // Update serial numbers when product changes
+        productSelect.addEventListener('change', function() {
+            const productId = this.value;
+            if (productId) {
+                fetch(`/api/inventory/product/${productId}/serial-numbers/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        serialNumberSelect.innerHTML = '';
+                        data.forEach(serial => {
+                            const option = document.createElement('option');
+                            option.value = serial.id;
+                            option.textContent = serial.serial_number;
+                            serialNumberSelect.appendChild(option);
+                        });
+                    });
+            }
+        });
+    });
+</script>
+{% endblock %} 

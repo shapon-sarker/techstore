@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Product Performance{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/daterangepicker.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Product Performance</h1>
+        <div class="d-flex">
+            <form class="form-inline" method="get">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="daterange" name="daterange" 
+                           value="{{ start_date|date:'m/d/Y' }} - {{ end_date|date:'m/d/Y' }}">
+                    <button class="btn btn-primary" type="submit">Apply</button>
+                </div>
+            </form>
+            <button class="btn btn-success ml-2" onclick="exportToExcel()">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="productsTable">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Total Quantity</th>
+                            <th>Total Revenue</th>
+                            <th>Total Profit</th>
+                            <th>Avg Daily Sales</th>
+                            <th>Performance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for performance in performances %}
+                        <tr>
+                            <td>{{ performance.product__name }}</td>
+                            <td>{{ performance.total_quantity }}</td>
+                            <td>${{ performance.total_revenue|floatformat:2 }}</td>
+                            <td>${{ performance.total_profit|floatformat:2 }}</td>
+                            <td>{{ performance.avg_daily_sales|floatformat:1 }}</td>
+                            <td>
+                                <div class="progress">
+                                    {% with performance_percentage=performance.total_revenue|percentage_of_max:performances %}
+                                    <div class="progress-bar {% if performance_percentage >= 75 %}bg-success{% elif performance_percentage >= 50 %}bg-info{% elif performance_percentage >= 25 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         role="progressbar" 
+                                         style="width: {{ performance_percentage }}%"
+                                         aria-valuenow="{{ performance_percentage }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        {{ performance_percentage }}%
+                                    </div>
+                                    {% endwith %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="font-weight-bold">
+                            <td>Total</td>
+                            <td>{{ performances|sum:'total_quantity' }}</td>
+                            <td>${{ performances|sum:'total_revenue'|floatformat:2 }}</td>
+                            <td>${{ performances|sum:'total_profit'|floatformat:2 }}</td>
+                            <td>-</td>
+                            <td>-</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Charts -->
+    <div class="row">
+        <div class="col-xl-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Revenue Distribution</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-pie">
+                        <canvas id="revenueDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Quantity Distribution</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-pie">
+                        <canvas id="quantityDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/daterangepicker.js' %}"></script>
+<script src="{% static 'js/chart.min.js' %}"></script>
+<script src="{% static 'js/xlsx.full.min.js' %}"></script>
+<script>
+$(function() {
+    $('#daterange').daterangepicker({
+        startDate: moment('{{ start_date|date:"Y-m-d" }}'),
+        endDate: moment('{{ end_date|date:"Y-m-d" }}'),
+        ranges: {
+           'Today': [moment(), moment()],
+           'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+           'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+           'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+           'This Month': [moment().startOf('month'), moment().endOf('month')],
+           'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+        }
+    });
+
+    // Revenue Distribution Chart
+    var revenueCtx = document.getElementById('revenueDistributionChart').getContext('2d');
+    new Chart(revenueCtx, {
+        type: 'pie',
+        data: {
+            labels: [{% for p in performances|slice:":5" %}'{{ p.product__name }}',{% endfor %} 'Others'],
+            datasets: [{
+                data: [
+                    {% for p in performances|slice:":5" %}{{ p.total_revenue }},{% endfor %}
+                    {{ performances|slice:"5:"|sum:'total_revenue' }}
+                ],
+                backgroundColor: [
+                    '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796'
+                ]
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Quantity Distribution Chart
+    var quantityCtx = document.getElementById('quantityDistributionChart').getContext('2d');
+    new Chart(quantityCtx, {
+        type: 'pie',
+        data: {
+            labels: [{% for p in performances|slice:":5" %}'{{ p.product__name }}',{% endfor %} 'Others'],
+            datasets: [{
+                data: [
+                    {% for p in performances|slice:":5" %}{{ p.total_quantity }},{% endfor %}
+                    {{ performances|slice:"5:"|sum:'total_quantity' }}
+                ],
+                backgroundColor: [
+                    '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796'
+                ]
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+
+function exportToExcel() {
+    var wb = XLSX.utils.table_to_book(document.getElementById('productsTable'), {sheet:"Product Performance"});
+    var wbout = XLSX.write(wb, {bookType:'xlsx', type:'binary'});
+
+    function s2ab(s) {
+        var buf = new ArrayBuffer(s.length);
+        var view = new Uint8Array(buf);
+        for (var i=0; i<s.length; i++) view[i] = s.charCodeAt(i) & 0xFF;
+        return buf;
+    }
+
+    var blob = new Blob([s2ab(wbout)], {type:"application/octet-stream"});
+    var url = window.URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = 'product_performance_' + moment().format('YYYY-MM-DD') + '.xlsx';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %} 

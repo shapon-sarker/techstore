@@ -1,0 +1,431 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Low Stock Products - TechStore{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">Low Stock Products</h1>
+            <p class="text-muted">Products that need immediate attention</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'inventory:stock_level_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Stock Levels
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="row">
+        <div class="col">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-warning bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-warning">Low Stock Items</h6>
+                            <h3 class="mb-0">{{ low_stock_products|length }}</h3>
+                        </div>
+                        <div class="bg-warning bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-exclamation-triangle text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-danger">Critical Items</h6>
+                            <h3 class="mb-0">{{ critical_items_count }}</h3>
+                        </div>
+                        <div class="bg-danger bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-exclamation-circle text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-info">Total Value</h6>
+                            <h3 class="mb-0">${{ total_value|floatformat:2 }}</h3>
+                        </div>
+                        <div class="bg-info bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-dollar-sign text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-success">Restock Needed</h6>
+                            <h3 class="mb-0">{{ restock_needed_count }}</h3>
+                        </div>
+                        <div class="bg-success bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-boxes text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h5 class="card-title mb-0">Products Below Reorder Point</h5>
+                </div>
+                <div class="col-auto">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="searchInput" placeholder="Search products...">
+                        <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Filters -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <select class="form-select" id="categoryFilter">
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}">{{ category }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="stockLevelFilter">
+                        <option value="">All Stock Levels</option>
+                        <option value="critical">Critical (0-2)</option>
+                        <option value="low">Low (3-5)</option>
+                        <option value="warning">Warning (6-10)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="sortBy">
+                        <option value="stock-asc">Stock Level (Low to High)</option>
+                        <option value="stock-desc">Stock Level (High to Low)</option>
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                        <option value="date-asc">Last Restock (Oldest)</option>
+                        <option value="date-desc">Last Restock (Recent)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-primary w-100" id="exportBtn">
+                        <i class="fas fa-download"></i> Export to CSV
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover" id="productsTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-sort="name">Product <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="category">Category <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="stock">Current Stock <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="reorder">Reorder Point <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="quantity">Reorder Quantity <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="date">Last Restock <i class="fas fa-sort"></i></th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stock in low_stock_products %}
+                        <tr data-category="{{ stock.product.category }}" data-stock="{{ stock.quantity }}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if stock.product.image %}
+                                    <img src="{{ stock.product.image.url }}" alt="{{ stock.product.name }}" 
+                                         class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                    {% else %}
+                                    <div class="rounded me-2 bg-light d-flex align-items-center justify-content-center" 
+                                         style="width: 40px; height: 40px;">
+                                        <i class="fas fa-box text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                    <div>
+                                        <div class="fw-bold">{{ stock.product.name }}</div>
+                                        <small class="text-muted">{{ stock.product.brand }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ stock.product.category }}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-{% if stock.quantity <= 0 %}danger{% else %}warning{% endif %} me-2">
+                                        {{ stock.quantity }}
+                                    </span>
+                                    <div class="progress flex-grow-1" style="height: 6px;">
+                                        <div class="progress-bar bg-{% if stock.quantity <= 0 %}danger{% else %}warning{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ stock.quantity|div:stock.reorder_point|mul:100 }}%"
+                                             aria-valuenow="{{ stock.quantity }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="{{ stock.reorder_point }}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ stock.reorder_point }}</td>
+                            <td>{{ stock.reorder_quantity }}</td>
+                            <td>
+                                {% if stock.last_restock_date %}
+                                <span class="d-flex align-items-center">
+                                    <i class="fas fa-calendar-alt me-2 text-muted"></i>
+                                    {{ stock.last_restock_date|date:"M d, Y" }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">Never</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'inventory:transaction_create' %}?product={{ stock.product.pk }}" 
+                                       class="btn btn-sm btn-primary" data-bs-toggle="tooltip" title="Add Stock">
+                                        <i class="fas fa-plus"></i>
+                                    </a>
+                                    <a href="{% url 'products:detail' stock.product.pk %}" 
+                                       class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" 
+                                            data-bs-target="#stockHistoryModal" data-product-id="{{ stock.product.pk }}"
+                                            data-bs-toggle="tooltip" title="View History">
+                                        <i class="fas fa-history"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-check-circle fa-3x mb-3"></i>
+                                    <h5>No Low Stock Products</h5>
+                                    <p class="mb-0">All products are above their minimum stock levels.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stock History Modal -->
+<div class="modal fade" id="stockHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Stock History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="stockHistoryChart" style="height: 300px;"></div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm" id="stockHistoryTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Quantity</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sortable {
+        cursor: pointer;
+    }
+    .sortable:hover {
+        background-color: rgba(0,0,0,.05);
+    }
+    .progress {
+        background-color: rgba(0,0,0,.1);
+    }
+    .card {
+        transition: transform 0.2s;
+    }
+    .card:hover {
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const productsTable = document.getElementById('productsTable');
+        const rows = productsTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        function filterTable() {
+            const searchText = searchInput.value.toLowerCase();
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const stockLevelFilter = document.getElementById('stockLevelFilter').value;
+            
+            for (let row of rows) {
+                const text = row.textContent.toLowerCase();
+                const category = row.dataset.category;
+                const stock = parseInt(row.dataset.stock);
+                
+                let showRow = text.includes(searchText);
+                
+                if (categoryFilter && category !== categoryFilter) {
+                    showRow = false;
+                }
+                
+                if (stockLevelFilter) {
+                    if (stockLevelFilter === 'critical' && stock > 2) showRow = false;
+                    if (stockLevelFilter === 'low' && (stock <= 2 || stock > 5)) showRow = false;
+                    if (stockLevelFilter === 'warning' && (stock <= 5 || stock > 10)) showRow = false;
+                }
+                
+                row.style.display = showRow ? '' : 'none';
+            }
+        }
+
+        searchButton.addEventListener('click', filterTable);
+        searchInput.addEventListener('keyup', filterTable);
+        document.getElementById('categoryFilter').addEventListener('change', filterTable);
+        document.getElementById('stockLevelFilter').addEventListener('change', filterTable);
+
+        // Sorting functionality
+        const sortableHeaders = document.querySelectorAll('.sortable');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const sortBy = header.dataset.sort;
+                const isAsc = header.classList.contains('asc');
+                
+                // Update sort icons
+                sortableHeaders.forEach(h => h.classList.remove('asc', 'desc'));
+                header.classList.add(isAsc ? 'desc' : 'asc');
+                
+                // Sort rows
+                const tbody = productsTable.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                
+                rows.sort((a, b) => {
+                    const aValue = a.querySelector(`td:nth-child(${Array.from(header.parentElement.children).indexOf(header) + 1})`).textContent;
+                    const bValue = b.querySelector(`td:nth-child(${Array.from(header.parentElement.children).indexOf(header) + 1})`).textContent;
+                    
+                    return isAsc ? bValue.localeCompare(aValue) : aValue.localeCompare(bValue);
+                });
+                
+                tbody.innerHTML = '';
+                rows.forEach(row => tbody.appendChild(row));
+            });
+        });
+
+        // Export to CSV
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            const rows = Array.from(productsTable.querySelectorAll('tr'));
+            const csvContent = rows.map(row => {
+                return Array.from(row.cells).map(cell => {
+                    return `"${cell.textContent.trim()}"`;
+                }).join(',');
+            }).join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'low_stock_products.csv';
+            link.click();
+        });
+
+        // Stock History Modal
+        const stockHistoryModal = document.getElementById('stockHistoryModal');
+        stockHistoryModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const productId = button.getAttribute('data-product-id');
+            
+            // Fetch stock history data
+            fetch(`/api/inventory/stock-history/${productId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    // Update chart
+                    const ctx = document.getElementById('stockHistoryChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.dates,
+                            datasets: [{
+                                label: 'Stock Level',
+                                data: data.levels,
+                                borderColor: 'rgb(75, 192, 192)',
+                                tension: 0.1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                    
+                    // Update table
+                    const tbody = document.querySelector('#stockHistoryTable tbody');
+                    tbody.innerHTML = data.transactions.map(t => `
+                        <tr>
+                            <td>${t.date}</td>
+                            <td>${t.type}</td>
+                            <td>${t.quantity}</td>
+                            <td>${t.notes}</td>
+                        </tr>
+                    `).join('');
+                });
+        });
+    });
+</script>
+{% endblock %} 
