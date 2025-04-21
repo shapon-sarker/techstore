@@ -2,6 +2,23 @@
 
 A comprehensive Django-based management system for electronics stores, featuring product management, inventory tracking, sales analytics, and user management.
 
+
+![image](https://github.com/user-attachments/assets/191dfd69-9214-4924-9b4a-9c65959148ee)
+![image](https://github.com/user-attachments/assets/d16424a6-9b9b-44b5-84d9-8f4f50373f05)
+![image](https://github.com/user-attachments/assets/8a9fd830-697e-4e09-ad06-ab7c1d2e80df)
+![image](https://github.com/user-attachments/assets/714d0982-0a9d-46e8-978b-b7333d19efad)
+![image](https://github.com/user-attachments/assets/35980700-2c8b-4cba-9cd6-8f9e267a84a6)
+![image](https://github.com/user-attachments/assets/cd021a35-6246-4a2b-b55e-1f204f82585e)
+![image](https://github.com/user-attachments/assets/25d664ae-fbee-494f-a47e-8155e3b4b157)
+
+
+
+
+
+
+
+
+
 ## Features
 
 - **Product Management**
