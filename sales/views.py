@@ -17,6 +17,9 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from datetime import datetime, timedelta
 import csv
+from decimal import Decimal
+import json
+from django.core.serializers.json import DjangoJSONEncoder
 
 User = get_user_model()
 
@@ -89,63 +92,56 @@ def sale_detail(request, pk):
 def sale_create(request):
     if request.method == 'POST':
         sale_form = SaleForm(request.POST)
-        formset = SaleItemFormSet(request.POST, queryset=SaleItem.objects.none())
+        formset = SaleItemFormSet(request.POST)
         
         if sale_form.is_valid() and formset.is_valid():
             sale = sale_form.save(commit=False)
             sale.created_by = request.user
             
-            # Calculate total amount from formset before saving sale
-            total_amount = 0
-            instances = formset.save(commit=False)
-            for instance in instances:
-                quantity = instance.quantity
-                unit_price = instance.unit_price
-                discount_percentage = instance.discount_percentage
-                
-                # Calculate item total with discount
-                subtotal = quantity * unit_price
-                discount = subtotal * (discount_percentage / 100)
-                total_amount += subtotal - discount
+            # Calculate total amount from formset
+            total_amount = Decimal('0')
+            for form in formset:
+                if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                    quantity = form.cleaned_data.get('quantity', 0)
+                    unit_price = form.cleaned_data.get('unit_price', Decimal('0'))
+                    discount_percentage = form.cleaned_data.get('discount_percentage', Decimal('0'))
+                    
+                    subtotal = quantity * unit_price
+                    discount = (subtotal * discount_percentage) / 100
+                    total_amount += subtotal - discount
             
-            # Set the total amount before saving
             sale.total_amount = total_amount
             sale.save()
             
-            # Now save all the items
+            # Save formset
+            instances = formset.save(commit=False)
             for instance in instances:
                 instance.sale = sale
                 instance.save()
-                
-                # Update product stock
-                product = instance.product
-                product.quantity_in_stock -= instance.quantity
-                product.save()
             
             messages.success(request, 'Sale created successfully.')
-            # Redirect to print view instead of list
-            return redirect('sales:print_invoice', pk=sale.id)
+            return redirect('sales:detail', pk=sale.pk)
     else:
         sale_form = SaleForm()
         formset = SaleItemFormSet(queryset=SaleItem.objects.none())
     
     # Get all active products with stock and prepare for JSON
-    products = Product.objects.filter(is_active=True, quantity_in_stock__gt=0)
-    products_data = [
-        {
+    products = Product.objects.filter(is_active=True)
+    products_data = []
+    for product in products:
+        products_data.append({
             'id': product.id,
-            'name': product.name,
+            'name': str(product.name),
             'price': float(product.price),
             'quantity_in_stock': product.quantity_in_stock
-        }
-        for product in products
-    ]
+        })
     
     context = {
         'sale_form': sale_form,
         'formset': formset,
-        'products': products_data,
+        'products': json.dumps(products_data, cls=DjangoJSONEncoder)
     }
+    
     return render(request, 'sales/sale_form.html', context)
 
 @login_required

@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Sale Form{% endblock %}
+{% block title %}{% if sale_form.instance.pk %}Edit{% else %}Create{% endif %} Sale{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -9,6 +10,7 @@
     <form method="post" id="saleForm">
         {% csrf_token %}
         <div class="row">
+            <!-- Left Column -->
             <div class="col-md-8">
                 <!-- Customer Information -->
                 <div class="card mb-3">
@@ -40,12 +42,15 @@
                     {% for form in formset %}
                         <div class="item-form card mb-3">
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">Item #{{ forloop.counter }}</h5>
-                                <button type="button" class="btn btn-sm btn-danger delete-item" {% if forloop.first %}style="display: none;"{% endif %}>
-                                    <i class="fas fa-trash"></i> Remove
-                                </button>
+                                <h5 class="mb-0">Item #<span class="item-number">{{ forloop.counter }}</span></h5>
+                                {% if forloop.counter > 1 %}
+                                    <button type="button" class="btn btn-sm btn-danger delete-item">
+                                        <i class="fas fa-trash"></i> Remove
+                                    </button>
+                                {% endif %}
                             </div>
                             <div class="card-body">
+                                {{ form.id }}
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group">
@@ -91,6 +96,7 @@
                 </div>
             </div>
 
+            <!-- Right Column -->
             <div class="col-md-4">
                 <!-- Sale Summary -->
                 <div class="card mb-3">
@@ -165,215 +171,193 @@
     </form>
 </div>
 
-{# Prepare product data for JavaScript #}
-{{ products|json_script:"product-data" }}
+<!-- Product Data -->
+<script id="product-data" type="application/json">
+    {{ products|safe }}
+</script>
 
 {% block extra_js %}
 <script>
-    // Initialize product prices from server data
-    const productData = JSON.parse(document.getElementById('product-data').textContent);
-    const productPrices = {};
-    
-    // Convert the data into the format we need
-    productData.forEach(product => {
-        productPrices[product.id] = {
-            price: product.price,
-            name: product.name,
-            stock: product.quantity_in_stock
-        };
-    });
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize product data
+        const productData = JSON.parse(document.getElementById('product-data').textContent);
+        const productPrices = {};
+        
+        // Convert the data into the format we need
+        productData.forEach(product => {
+            productPrices[product.id] = {
+                price: Math.round(parseFloat(product.price) || 0),
+                name: product.name,
+                stock: product.quantity_in_stock
+            };
+        });
 
-    function initializeFormEvents(formDiv) {
-        const productSelect = formDiv.querySelector('select[id$="-product"]');
-        const quantityInput = formDiv.querySelector('input[id$="-quantity"]');
-        const unitPriceInput = formDiv.querySelector('input[id$="-unit_price"]');
-        const discountInput = formDiv.querySelector('input[id$="-discount_percentage"]');
-        const stockInfo = formDiv.querySelector('.stock-info');
-        const itemTotal = formDiv.querySelector('.item-total');
-
-        if (productSelect) {
-            productSelect.addEventListener('change', function() {
-                const selectedProduct = productPrices[this.value];
-                if (selectedProduct) {
-                    unitPriceInput.value = selectedProduct.price;
-                    quantityInput.max = selectedProduct.stock;
-                    stockInfo.textContent = `Available: ${selectedProduct.stock}`;
-                    calculateTotal();
+        function updateItemNumbers() {
+            document.querySelectorAll('.item-form').forEach((form, index) => {
+                form.querySelector('.item-number').textContent = index + 1;
+                const deleteBtn = form.querySelector('.delete-item');
+                if (deleteBtn) {
+                    deleteBtn.style.display = document.querySelectorAll('.item-form').length === 1 ? 'none' : '';
                 }
             });
         }
 
-        if (quantityInput) {
-            quantityInput.addEventListener('input', calculateTotal);
+        function initializeFormEvents(formDiv) {
+            const productSelect = formDiv.querySelector('select[id$="-product"]');
+            const quantityInput = formDiv.querySelector('input[id$="-quantity"]');
+            const unitPriceInput = formDiv.querySelector('input[id$="-unit_price"]');
+            const discountInput = formDiv.querySelector('input[id$="-discount_percentage"]');
+            const stockInfo = formDiv.querySelector('.stock-info');
+            const itemTotal = formDiv.querySelector('.item-total');
+
+            if (productSelect) {
+                productSelect.addEventListener('change', function() {
+                    const selectedProduct = productPrices[this.value];
+                    if (selectedProduct) {
+                        unitPriceInput.value = selectedProduct.price;
+                        quantityInput.max = selectedProduct.stock;
+                        stockInfo.textContent = `Available: ${selectedProduct.stock}`;
+                        calculateTotal();
+                    } else {
+                        unitPriceInput.value = '';
+                        quantityInput.max = '';
+                        stockInfo.textContent = '';
+                        calculateTotal();
+                    }
+                });
+
+                // Set initial values if product is already selected
+                if (productSelect.value) {
+                    const selectedProduct = productPrices[productSelect.value];
+                    if (selectedProduct) {
+                        unitPriceInput.value = selectedProduct.price;
+                        quantityInput.max = selectedProduct.stock;
+                        stockInfo.textContent = `Available: ${selectedProduct.stock}`;
+                        calculateTotal();
+                    }
+                }
+            }
+
+            if (quantityInput) quantityInput.addEventListener('input', calculateTotal);
+            if (discountInput) discountInput.addEventListener('input', calculateTotal);
+            if (unitPriceInput) unitPriceInput.addEventListener('input', calculateTotal);
+
+            function calculateTotal() {
+                const quantity = Math.round(parseFloat(quantityInput.value) || 0);
+                const unitPrice = Math.round(parseFloat(unitPriceInput.value) || 0);
+                const discountPercentage = Math.round(parseFloat(discountInput.value) || 0);
+
+                const subtotal = quantity * unitPrice;
+                const discount = Math.round(subtotal * (discountPercentage / 100));
+                const total = subtotal - discount;
+
+                itemTotal.textContent = `$${total}`;
+                updateSaleSummary();
+            }
         }
 
-        if (discountInput) {
-            discountInput.addEventListener('input', calculateTotal);
+        function updateSaleSummary() {
+            let subtotal = 0;
+            let totalDiscount = 0;
+
+            document.querySelectorAll('.item-form').forEach(form => {
+                const quantity = Math.round(parseFloat(form.querySelector('input[id$="-quantity"]').value) || 0);
+                const unitPrice = Math.round(parseFloat(form.querySelector('input[id$="-unit_price"]').value) || 0);
+                const discountPercentage = Math.round(parseFloat(form.querySelector('input[id$="-discount_percentage"]').value) || 0);
+
+                const itemSubtotal = quantity * unitPrice;
+                const itemDiscount = Math.round(itemSubtotal * (discountPercentage / 100));
+
+                subtotal += itemSubtotal;
+                totalDiscount += itemDiscount;
+            });
+
+            const finalTotal = subtotal - totalDiscount;
+
+            document.getElementById('subtotal').textContent = `$${subtotal}`;
+            document.getElementById('totalDiscount').textContent = `$${totalDiscount}`;
+            document.getElementById('finalTotal').textContent = `$${finalTotal}`;
+
+            updatePaymentDetails(finalTotal);
         }
 
-        if (unitPriceInput) {
-            unitPriceInput.addEventListener('input', calculateTotal);
+        function updatePaymentDetails(totalAmount) {
+            const amountPaid = Math.round(parseFloat(document.getElementById('id_amount_paid').value) || 0);
+            const amountAdjusted = Math.round(parseFloat(document.getElementById('id_amount_adjusted').value) || 0);
+            const balanceDue = totalAmount - amountPaid - amountAdjusted;
+
+            document.getElementById('balanceDue').textContent = `$${balanceDue}`;
+
+            const statusBadge = document.getElementById('paymentStatus');
+            if (balanceDue <= 0) {
+                statusBadge.textContent = 'Paid';
+                statusBadge.className = 'badge bg-success';
+            } else if (amountPaid > 0) {
+                statusBadge.textContent = 'Partially Paid';
+                statusBadge.className = 'badge bg-warning';
+            } else {
+                statusBadge.textContent = 'Unpaid';
+                statusBadge.className = 'badge bg-danger';
+            }
         }
 
-        function calculateTotal() {
-            const quantity = parseFloat(quantityInput.value) || 0;
-            const unitPrice = parseFloat(unitPriceInput.value) || 0;
-            const discountPercentage = parseFloat(discountInput.value) || 0;
-
-            const subtotal = quantity * unitPrice;
-            const discount = subtotal * (discountPercentage / 100);
-            const total = subtotal - discount;
-
-            itemTotal.textContent = `$${total.toFixed(2)}`;
-            updateSaleSummary();
-        }
-    }
-
-    function updateSaleSummary() {
-        let subtotal = 0;
-        let totalDiscount = 0;
-
-        document.querySelectorAll('.item-form').forEach(form => {
-            const quantity = parseFloat(form.querySelector('input[id$="-quantity"]').value) || 0;
-            const unitPrice = parseFloat(form.querySelector('input[id$="-unit_price"]').value) || 0;
-            const discountPercentage = parseFloat(form.querySelector('input[id$="-discount_percentage"]').value) || 0;
-
-            const itemSubtotal = quantity * unitPrice;
-            const itemDiscount = itemSubtotal * (discountPercentage / 100);
-
-            subtotal += itemSubtotal;
-            totalDiscount += itemDiscount;
+        // Initialize all existing forms
+        document.querySelectorAll('.item-form').forEach(formDiv => {
+            initializeFormEvents(formDiv);
         });
 
-        const finalTotal = subtotal - totalDiscount;
-
-        // Update summary amounts
-        document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
-        document.getElementById('totalDiscount').textContent = `$${totalDiscount.toFixed(2)}`;
-        document.getElementById('finalTotal').textContent = `$${finalTotal.toFixed(2)}`;
-
-        // Update payment details
-        updatePaymentDetails(finalTotal);
-    }
-
-    function updatePaymentDetails(totalAmount) {
-        const amountPaid = parseFloat(document.getElementById('id_amount_paid').value) || 0;
-        const amountAdjusted = parseFloat(document.getElementById('id_amount_adjusted').value) || 0;
-        const balanceDue = totalAmount - amountPaid - amountAdjusted;
-
-        document.getElementById('balanceDue').textContent = `$${balanceDue.toFixed(2)}`;
-
-        // Update payment status badge
-        const statusBadge = document.getElementById('paymentStatus');
-        if (balanceDue <= 0) {
-            statusBadge.textContent = 'Paid';
-            statusBadge.className = 'badge bg-success';
-        } else if (amountPaid > 0) {
-            statusBadge.textContent = 'Partially Paid';
-            statusBadge.className = 'badge bg-warning';
-        } else {
-            statusBadge.textContent = 'Unpaid';
-            statusBadge.className = 'badge bg-danger';
-        }
-    }
-
-    // Initialize payment field events
-    document.getElementById('id_amount_paid').addEventListener('input', function() {
-        updateSaleSummary();
-    });
-
-    document.getElementById('id_amount_adjusted').addEventListener('input', function() {
-        updateSaleSummary();
-    });
-
-    // Initialize existing forms
-    document.querySelectorAll('.item-form').forEach(formDiv => {
-        initializeFormEvents(formDiv);
-    });
-
-    // Handle adding new forms
-    document.getElementById('addItem').addEventListener('click', function() {
-        const formCount = document.getElementById('id_form-TOTAL_FORMS');
-        const itemForms = document.getElementById('itemForms');
-        const newForm = itemForms.querySelector('.item-form').cloneNode(true);
-        const formNum = parseInt(formCount.value);
-        
-        newForm.innerHTML = newForm.innerHTML.replace(/-\d+-/g, `-${formNum}-`);
-        
-        // Show delete button for the new form
-        const deleteButton = newForm.querySelector('.delete-item');
-        if (deleteButton) {
-            deleteButton.style.display = '';
-        }
-        
-        itemForms.appendChild(newForm);
-        formCount.value = formNum + 1;
-        
-        // Initialize events for the new form
-        initializeFormEvents(newForm);
-        
-        // Clear the values in the new form
-        newForm.querySelectorAll('input[type="number"]').forEach(input => {
-            input.value = '';
-        });
-        newForm.querySelector('select').selectedIndex = 0;
-        newForm.querySelector('.stock-info').textContent = '';
-        newForm.querySelector('.item-total').textContent = '$0.00';
-        
-        updateSaleSummary();
-    });
-
-    // Handle deleting items
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('delete-item') || e.target.closest('.delete-item')) {
-            const formDiv = e.target.closest('.item-form');
-            formDiv.remove();
+        // Handle adding new forms
+        document.getElementById('addItem').addEventListener('click', function() {
+            const formCount = document.getElementById('id_form-TOTAL_FORMS');
+            const itemForms = document.getElementById('itemForms');
+            const newForm = itemForms.querySelector('.item-form').cloneNode(true);
+            const formNum = parseInt(formCount.value);
+            
+            newForm.innerHTML = newForm.innerHTML.replace(/-\d+-/g, `-${formNum}-`);
+            
+            // Clear the values in the new form
+            newForm.querySelectorAll('input[type="number"]').forEach(input => {
+                input.value = '';
+            });
+            newForm.querySelector('select').selectedIndex = 0;
+            newForm.querySelector('.stock-info').textContent = '';
+            newForm.querySelector('.item-total').textContent = '$0.00';
+            
+            // Add delete button if not present
+            if (!newForm.querySelector('.delete-item')) {
+                const header = newForm.querySelector('.card-header');
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-sm btn-danger delete-item';
+                deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Remove';
+                header.appendChild(deleteBtn);
+            }
+            
+            itemForms.appendChild(newForm);
+            formCount.value = formNum + 1;
+            
+            initializeFormEvents(newForm);
+            updateItemNumbers();
             updateSaleSummary();
-        }
-    });
+        });
 
-    // Form validation before submit
-    document.getElementById('saleForm').addEventListener('submit', function(e) {
-        let isValid = true;
-        let message = '';
-
-        // Check if there are any items
-        if (document.querySelectorAll('.item-form').length === 0) {
-            isValid = false;
-            message = 'Please add at least one item to the sale.';
-        }
-
-        // Check if all required fields are filled
-        document.querySelectorAll('.item-form').forEach(form => {
-            const product = form.querySelector('select[id$="-product"]').value;
-            const quantity = form.querySelector('input[id$="-quantity"]').value;
-            const unitPrice = form.querySelector('input[id$="-unit_price"]').value;
-
-            if (!product || !quantity || !unitPrice) {
-                isValid = false;
-                message = 'Please fill in all required fields for each item.';
+        // Handle deleting items
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('delete-item') || e.target.closest('.delete-item')) {
+                const formDiv = e.target.closest('.item-form');
+                if (document.querySelectorAll('.item-form').length > 1) {
+                    formDiv.remove();
+                    updateItemNumbers();
+                    updateSaleSummary();
+                    
+                    const formCount = document.getElementById('id_form-TOTAL_FORMS');
+                    formCount.value = document.querySelectorAll('.item-form').length;
+                }
             }
         });
 
-        // Validate payment details
-        const finalTotal = parseFloat(document.getElementById('finalTotal').textContent.replace('$', ''));
-        const amountPaid = parseFloat(document.getElementById('id_amount_paid').value) || 0;
-        const amountAdjusted = parseFloat(document.getElementById('id_amount_adjusted').value) || 0;
-
-        if (amountPaid + amountAdjusted > finalTotal) {
-            isValid = false;
-            message = 'Total of amount paid and adjusted cannot exceed the final total.';
-        }
-
-        if (amountAdjusted > 0 && !document.getElementById('id_adjustment_reason').value.trim()) {
-            isValid = false;
-            message = 'Please provide a reason for the adjustment.';
-        }
-
-        if (!isValid) {
-            e.preventDefault();
-            alert(message);
-        }
+        // Initialize payment field events
+        document.getElementById('id_amount_paid').addEventListener('input', updateSaleSummary);
+        document.getElementById('id_amount_adjusted').addEventListener('input', updateSaleSummary);
     });
 </script>
 {% endblock %}

@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Invoice #{{ sale.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Print-specific styles */
+    @media print {
+        body {
+            padding: 0;
+            margin: 0;
+            font-size: 12pt;
+        }
+        .container {
+            width: 100%;
+            max-width: 100%;
+            padding: 20px;
+            margin: 0;
+        }
+        .no-print {
+            display: none !important;
+        }
+        .page-break {
+            page-break-after: always;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+        .invoice-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .invoice-header img {
+            max-width: 150px;
+            height: auto;
+        }
+        .company-details {
+            margin: 15px 0;
+            font-size: 11pt;
+        }
+        .invoice-meta {
+            margin: 20px 0;
+        }
+        .invoice-meta-box {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .signature-section {
+            margin-top: 50px;
+            page-break-inside: avoid;
+        }
+        .signature-line {
+            border-top: 1px solid #000;
+            width: 200px;
+            margin-top: 50px;
+            margin-bottom: 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Print and Back buttons -->
+    <div class="no-print mb-3">
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="fas fa-print"></i> Print Invoice
+        </button>
+        <a href="{% url 'sales:sale_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Sales
+        </a>
+    </div>
+
+    <!-- Invoice Content -->
+    <div class="invoice-content">
+        <!-- Header -->
+        <div class="invoice-header">
+            <img src="{% static 'images/logo.png' %}" alt="Subha Tech Shop" class="mb-3">
+            <h1 class="mb-2">Subha Tech Shop</h1>
+            <div class="company-details">
+                <p class="mb-1">Nobomollika,Rupkotha Housing, Gohail Road,Sutrapur,Bogura</p>
+                <p class="mb-1">Phone: 01616910136 | Email: md.shapan11@gmail.com</p>
+            </div>
+        </div>
+
+        <!-- Invoice Meta Information -->
+        <div class="row invoice-meta">
+            <div class="col-md-6">
+                <div class="invoice-meta-box">
+                    <h5 class="mb-3">Bill To:</h5>
+                    <p class="mb-1"><strong>{{ sale.customer_name }}</strong></p>
+                    <p class="mb-1">Contact: {{ sale.customer_contact }}</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="invoice-meta-box">
+                    <h5 class="mb-3">Invoice Details:</h5>
+                    <p class="mb-1"><strong>Invoice #:</strong> {{ sale.id }}</p>
+                    <p class="mb-1"><strong>Date:</strong> {{ sale.created_at|date:"F d, Y" }}</p>
+                    <p class="mb-1"><strong>Payment Method:</strong> {{ sale.get_payment_method_display }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th class="text-center">Quantity</th>
+                    <th class="text-end">Unit Price</th>
+                    <th class="text-center">Discount</th>
+                    <th class="text-end">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in sale.items.all %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td class="text-center">{{ item.quantity }}</td>
+                    <td class="text-end">${{ item.unit_price|floatformat:2 }}</td>
+                    <td class="text-center">{{ item.discount_percentage }}%</td>
+                    <td class="text-end">${{ item.total_price|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
+                    <td class="text-end">${{ sale.total_amount|floatformat:2 }}</td>
+                </tr>
+                {% if sale.amount_adjusted %}
+                <tr>
+                    <td colspan="4" class="text-end"><strong>Adjustment:</strong></td>
+                    <td class="text-end">${{ sale.amount_adjusted|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td colspan="4" class="text-end"><strong>Amount Paid:</strong></td>
+                    <td class="text-end">${{ sale.amount_paid|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td colspan="4" class="text-end"><strong>Balance Due:</strong></td>
+                    <td class="text-end">${{ sale.balance_due|floatformat:2 }}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- Terms and Conditions -->
+        <div class="terms-section">
+            <h5>Terms & Conditions:</h5>
+            <ol>
+                <li>All items sold are non-refundable</li>
+                <li>Warranty claims must be accompanied by this invoice</li>
+                <li>Warranty period varies by product</li>
+            </ol>
+        </div>
+
+        <!-- Signature Section -->
+        <div class="signature-section row">
+            <div class="col-6">
+                <div class="signature-line"></div>
+                <p>Customer Signature</p>
+            </div>
+            <div class="col-6 text-end">
+                <div class="signature-line ms-auto"></div>
+                <p>Authorized Signature</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-4">
+            <p class="small text-muted">© {% now "Y" %} SubhaTech Management System</p>
+        </div>
+    </div>
+</div>
+{% endblock %} 

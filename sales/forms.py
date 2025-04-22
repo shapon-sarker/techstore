@@ -87,10 +87,10 @@ class SaleItemForm(forms.ModelForm):
 SaleItemFormSet = modelformset_factory(
     SaleItem,
     form=SaleItemForm,
-    extra=1,
+    extra=1,  # Start with one empty form
     can_delete=True,
+    min_num=1,  # Minimum one item required
     validate_min=True,
-    min_num=1,
-    validate_max=True,
-    max_num=10
+    max_num=50,  # Increased max number for flexibility
+    validate_max=True
 ) 
