@@ -3,27 +3,96 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash, get_user_model
 from django.contrib.auth.forms import PasswordChangeForm
+from django.db.models import Sum, Count, Avg, F, ExpressionWrapper, DecimalField
+from django.db.models.functions import TruncDate
+from django.utils import timezone
+from datetime import timedelta
 from .forms import (CustomUserCreationForm, CustomUserChangeForm, 
                    ProfilePictureForm, UserPreferencesForm, CompanyInformationForm)
 from .models import User, UserActivity, CompanyInformation
 from inventory.models import ProductStock, StockTransaction, Return, WarrantyClaim
+from sales.models import Sale, SaleItem
+from products.models import Product
 
 User = get_user_model()
 
 @login_required
 def dashboard(request):
     try:
+        # Get date ranges
+        today = timezone.now().date()
+        start_of_week = today - timedelta(days=today.weekday())
+        start_of_month = today.replace(day=1)
+        
+        # Sales statistics
+        sales_stats = {
+            'today': Sale.objects.filter(created_at__date=today),
+            'this_week': Sale.objects.filter(created_at__date__gte=start_of_week),
+            'this_month': Sale.objects.filter(created_at__date__gte=start_of_month)
+        }
+        
+        sales_summary = {
+            'today_sales': sales_stats['today'].aggregate(
+                count=Count('id'),
+                total=Sum('total_amount')
+            ),
+            'week_sales': sales_stats['this_week'].aggregate(
+                count=Count('id'),
+                total=Sum('total_amount')
+            ),
+            'month_sales': sales_stats['this_month'].aggregate(
+                count=Count('id'),
+                total=Sum('total_amount')
+            )
+        }
+        
+        # Top selling products
+        top_products = Product.objects.annotate(
+            total_sold=Sum('sale_items__quantity'),
+            revenue=Sum(
+                ExpressionWrapper(
+                    F('sale_items__quantity') * F('sale_items__unit_price') * 
+                    (1 - F('sale_items__discount_percentage') / 100),
+                    output_field=DecimalField()
+                )
+            )
+        ).filter(total_sold__gt=0).order_by('-total_sold')[:5]
+        
+        # Recent sales with items
+        recent_sales = Sale.objects.select_related('created_by').prefetch_related('items__product').order_by('-created_at')[:10]
+        
+        # Low stock alerts
+        low_stock_products = ProductStock.objects.select_related('product').filter(
+            quantity__lte=F('reorder_point')
+        ).order_by('quantity')[:5]
+        
+        # Daily sales trend for the last 30 days
+        sales_trend = Sale.objects.filter(
+            created_at__date__gte=today - timedelta(days=30)
+        ).annotate(
+            date=TruncDate('created_at')
+        ).values('date').annotate(
+            total=Sum('total_amount'),
+            count=Count('id')
+        ).order_by('date')
+        
+        # Payment status summary
+        payment_summary = Sale.objects.values('payment_status').annotate(
+            count=Count('id'),
+            total=Sum('total_amount')
+        )
+        
         # User statistics
         total_users = User.objects.count()
         active_users = User.objects.filter(is_active=True).count()
         staff_users = User.objects.filter(is_staff=True).count()
         admin_users = User.objects.filter(is_superuser=True).count()
 
-        # Inventory data with pagination
+        # Inventory data
         stock_levels = ProductStock.objects.select_related('product').order_by('quantity')[:10]
         recent_transactions = StockTransaction.objects.select_related('product').order_by('-created_at')[:10]
-        recent_returns = Return.objects.select_related('product', 'customer').order_by('-created_at')[:10]
-        recent_warranty_claims = WarrantyClaim.objects.select_related('product', 'customer').order_by('-created_at')[:10]
+        recent_returns = Return.objects.select_related('product', 'customer').order_by('-created_at')[:5]
+        recent_warranty_claims = WarrantyClaim.objects.select_related('product', 'customer').order_by('-created_at')[:5]
         
         # Get recent activities
         recent_activities = UserActivity.objects.select_related('user').order_by('-created_at')[:10]
@@ -38,6 +107,12 @@ def dashboard(request):
             'recent_returns': recent_returns,
             'recent_warranty_claims': recent_warranty_claims,
             'recent_activities': recent_activities,
+            'sales_summary': sales_summary,
+            'top_products': top_products,
+            'recent_sales': recent_sales,
+            'low_stock_products': low_stock_products,
+            'sales_trend': list(sales_trend),
+            'payment_summary': payment_summary,
         }
         
         return render(request, 'users/dashboard.html', context)
