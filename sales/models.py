@@ -12,10 +12,20 @@ class Sale(models.Model):
         ('OTHER', 'Other'),
     )
 
+    PAYMENT_STATUS = (
+        ('PAID', 'Paid'),
+        ('PARTIAL', 'Partially Paid'),
+        ('UNPAID', 'Unpaid'),
+    )
+
     customer_name = models.CharField(max_length=100)
     customer_contact = models.CharField(max_length=20, blank=True)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHODS, default='CASH')
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    amount_adjusted = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    adjustment_reason = models.CharField(max_length=200, blank=True)
+    payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS, default='UNPAID')
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='sales')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -34,6 +44,20 @@ class Sale(models.Model):
     @property
     def total_profit(self):
         return sum(item.profit for item in self.items.all())
+
+    @property
+    def balance_due(self):
+        return self.total_amount - self.amount_paid - self.amount_adjusted
+
+    def save(self, *args, **kwargs):
+        # Update payment status based on amounts
+        if self.balance_due <= 0:
+            self.payment_status = 'PAID'
+        elif self.amount_paid > 0:
+            self.payment_status = 'PARTIAL'
+        else:
+            self.payment_status = 'UNPAID'
+        super().save(*args, **kwargs)
 
 class SaleItem(models.Model):
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='items')

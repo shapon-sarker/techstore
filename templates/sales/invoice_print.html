@@ -1,183 +1,160 @@
-{% extends "print_base.html" %}
-{% load static %}
+{% extends 'base.html' %}
 
-{% block title %}Invoice #{{ sale.invoice_number }}{% endblock %}
+{% block title %}Invoice - #{{ sale.id }}{% endblock %}
 
 {% block extra_css %}
 <style>
-    .invoice-header {
-        margin-bottom: 40px;
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        .print-only {
+            display: block !important;
+        }
+        .card {
+            border: none !important;
+        }
+        .card-body {
+            padding: 0 !important;
+        }
     }
-    .company-logo {
-        max-width: 200px;
-        height: auto;
-    }
-    .invoice-title {
-        color: #2c3e50;
-        font-size: 24px;
-        font-weight: bold;
-        margin-bottom: 20px;
+    .company-header {
+        text-align: center;
+        margin-bottom: 2rem;
     }
     .invoice-details {
-        margin-bottom: 30px;
+        margin-bottom: 2rem;
     }
-    .invoice-details-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 10px;
+    .table th {
+        background-color: #f8f9fa !important;
     }
-    .invoice-table {
-        margin-bottom: 30px;
-    }
-    .invoice-table th {
-        background-color: #f8f9fa;
-    }
-    .invoice-total {
-        margin-top: 20px;
-        text-align: right;
-    }
-    .signature-section {
-        margin-top: 50px;
-        display: flex;
-        justify-content: space-between;
-    }
-    .signature-box {
-        width: 200px;
-        text-align: center;
-    }
-    .signature-line {
-        border-top: 1px solid #333;
-        margin-top: 40px;
-        padding-top: 5px;
-    }
-    .qr-code {
-        text-align: center;
-        margin-top: 30px;
-    }
-    .qr-code img {
-        max-width: 100px;
-        height: auto;
+    @page {
+        size: A4;
+        margin: 1cm;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="invoice-header">
-    <div class="row">
-        <div class="col-6">
-            {% if company.logo %}
-                <img src="{{ company.logo.url }}" alt="{{ company.name }}" class="company-logo">
+<div class="container mt-4 mb-4">
+    <!-- Print Controls -->
+    <div class="mb-4 no-print">
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="fas fa-print"></i> Print Invoice
+        </button>
+        <a href="{% url 'sales:list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Sales
+        </a>
+    </div>
+
+    <!-- Invoice Content -->
+    <div class="card">
+        <div class="card-body">
+            <!-- Company Information -->
+            <div class="company-header">
+                {% if company_info.logo %}
+                    <img src="{{ company_info.logo.url }}" alt="Company Logo" style="max-height: 100px; margin-bottom: 1rem;">
+                {% endif %}
+                <h2>{{ company_info.name|default:"TechStore" }}</h2>
+                <p>{{ company_info.address|default:"" }}</p>
+                <p>Phone: {{ company_info.phone|default:"" }} | Email: {{ company_info.email|default:"" }}</p>
+                {% if company_info.website %}
+                    <p>Website: {{ company_info.website }}</p>
+                {% endif %}
+            </div>
+
+            <div class="row invoice-details">
+                <div class="col-md-6">
+                    <h5>Bill To:</h5>
+                    <p><strong>{{ sale.customer_name }}</strong></p>
+                    {% if sale.customer_contact %}
+                        <p>Contact: {{ sale.customer_contact }}</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <h5>Invoice Details:</h5>
+                    <p><strong>Invoice #:</strong> {{ sale.id }}</p>
+                    <p><strong>Date:</strong> {{ sale.created_at|date:"F j, Y" }}</p>
+                    <p><strong>Payment Method:</strong> {{ sale.get_payment_method_display }}</p>
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th class="text-center">Quantity</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-center">Discount</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in sale.items.all %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td class="text-center">{{ item.quantity }}</td>
+                            <td class="text-end">${{ item.unit_price|floatformat:2 }}</td>
+                            <td class="text-center">{{ item.discount_percentage }}%</td>
+                            <td class="text-end">${{ item.total_price|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
+                            <td class="text-end">${{ sale.total_amount|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>Total:</strong></td>
+                            <td class="text-end"><strong>${{ sale.total_amount|floatformat:2 }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            {% if sale.notes %}
+            <div class="mt-4">
+                <h5>Notes:</h5>
+                <p>{{ sale.notes|linebreaks }}</p>
+            </div>
             {% endif %}
-            <h1 class="company-name">{{ company.name }}</h1>
-            <p>
-                {{ company.address }}<br>
-                Phone: {{ company.phone }}<br>
-                Email: {{ company.email }}
-                {% if company.website %}<br>Website: {{ company.website }}{% endif %}
-            </p>
-        </div>
-        <div class="col-6 text-end">
-            <h2 class="invoice-title">INVOICE</h2>
-            <p>
-                <strong>Invoice #:</strong> {{ sale.invoice_number }}<br>
-                <strong>Date:</strong> {{ sale.created_at|date:"F d, Y" }}<br>
-                <strong>Due Date:</strong> {{ sale.created_at|date:"F d, Y" }}
-            </p>
-        </div>
-    </div>
-</div>
 
-<div class="invoice-details">
-    <div class="row">
-        <div class="col-6">
-            <h5>Bill To:</h5>
-            <p>
-                {{ sale.customer_name }}<br>
-                {% if sale.customer_address %}{{ sale.customer_address }}<br>{% endif %}
-                {% if sale.customer_phone %}Phone: {{ sale.customer_phone }}<br>{% endif %}
-                {% if sale.customer_email %}Email: {{ sale.customer_email }}{% endif %}
-            </p>
-        </div>
-        <div class="col-6">
-            <h5>Payment Details:</h5>
-            <p>
-                <strong>Payment Method:</strong> {{ sale.payment_method }}<br>
-                <strong>Payment Status:</strong> {{ sale.payment_status }}
-            </p>
+            <!-- Terms and Conditions -->
+            <div class="mt-4">
+                <h5>Terms & Conditions:</h5>
+                <ol>
+                    <li>All items sold are non-refundable</li>
+                    <li>Warranty claims must be accompanied by this invoice</li>
+                    <li>Warranty period varies by product</li>
+                </ol>
+            </div>
+
+            <!-- Footer -->
+            <div class="mt-5">
+                <div class="row">
+                    <div class="col-6">
+                        <p>_____________________</p>
+                        <p>Customer Signature</p>
+                    </div>
+                    <div class="col-6 text-end">
+                        <p>_____________________</p>
+                        <p>Authorized Signature</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="invoice-table">
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Product</th>
-                <th class="text-end">Quantity</th>
-                <th class="text-end">Unit Price</th>
-                <th class="text-end">Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in sale.saleitems.all %}
-            <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ item.product.name }}</td>
-                <td class="text-end">{{ item.quantity }}</td>
-                <td class="text-end">{{ item.unit_price|floatformat:2 }}</td>
-                <td class="text-end">{{ item.total|floatformat:2 }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-        <tfoot>
-            <tr>
-                <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
-                <td class="text-end">{{ sale.subtotal|floatformat:2 }}</td>
-            </tr>
-            {% if sale.discount %}
-            <tr>
-                <td colspan="4" class="text-end"><strong>Discount:</strong></td>
-                <td class="text-end">{{ sale.discount|floatformat:2 }}</td>
-            </tr>
-            {% endif %}
-            {% if sale.tax %}
-            <tr>
-                <td colspan="4" class="text-end"><strong>Tax ({{ sale.tax_rate }}%):</strong></td>
-                <td class="text-end">{{ sale.tax|floatformat:2 }}</td>
-            </tr>
-            {% endif %}
-            <tr>
-                <td colspan="4" class="text-end"><strong>Total:</strong></td>
-                <td class="text-end"><strong>{{ sale.total|floatformat:2 }}</strong></td>
-            </tr>
-        </tfoot>
-    </table>
-</div>
-
-<div class="signature-section">
-    <div class="signature-box">
-        <div class="signature-line">Authorized Signature</div>
-    </div>
-    <div class="signature-box">
-        <div class="signature-line">Customer Signature</div>
-    </div>
-</div>
-
-{% if sale.qr_code %}
-<div class="qr-code">
-    <img src="{{ sale.qr_code.url }}" alt="Invoice QR Code">
-</div>
+{% if not request.GET.no_print %}
+<script>
+    // Auto-print when the page loads
+    window.onload = function() {
+        window.print();
+    }
+</script>
 {% endif %}
-
-<div class="print-footer">
-    <p>Thank you for your business!</p>
-    {% if company.tax_number or company.registration_number %}
-    <p>
-        {% if company.tax_number %}Tax/VAT: {{ company.tax_number }}{% endif %}
-        {% if company.tax_number and company.registration_number %} | {% endif %}
-        {% if company.registration_number %}Reg. No: {{ company.registration_number }}{% endif %}
-    </p>
-    {% endif %}
-</div>
 {% endblock %} 

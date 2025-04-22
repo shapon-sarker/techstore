@@ -87,8 +87,6 @@ def sale_detail(request, pk):
 
 @login_required
 def sale_create(request):
-    SaleItemFormSet = modelformset_factory(SaleItem, form=SaleItemForm, extra=1)
-    
     if request.method == 'POST':
         sale_form = SaleForm(request.POST)
         formset = SaleItemFormSet(request.POST, queryset=SaleItem.objects.none())
@@ -96,73 +94,120 @@ def sale_create(request):
         if sale_form.is_valid() and formset.is_valid():
             sale = sale_form.save(commit=False)
             sale.created_by = request.user
-            sale.total_amount = 0
-            sale.save()
             
+            # Calculate total amount from formset before saving sale
             total_amount = 0
-            for form in formset:
-                if form.cleaned_data:
-                    sale_item = form.save(commit=False)
-                    sale_item.sale = sale
-                    sale_item.save()
-                    total_amount += sale_item.total_price
+            instances = formset.save(commit=False)
+            for instance in instances:
+                quantity = instance.quantity
+                unit_price = instance.unit_price
+                discount_percentage = instance.discount_percentage
+                
+                # Calculate item total with discount
+                subtotal = quantity * unit_price
+                discount = subtotal * (discount_percentage / 100)
+                total_amount += subtotal - discount
             
+            # Set the total amount before saving
             sale.total_amount = total_amount
             sale.save()
             
-            messages.success(request, 'Sale recorded successfully!')
-            return redirect('sales:detail', pk=sale.pk)
+            # Now save all the items
+            for instance in instances:
+                instance.sale = sale
+                instance.save()
+                
+                # Update product stock
+                product = instance.product
+                product.quantity_in_stock -= instance.quantity
+                product.save()
+            
+            messages.success(request, 'Sale created successfully.')
+            # Redirect to print view instead of list
+            return redirect('sales:print_invoice', pk=sale.id)
     else:
         sale_form = SaleForm()
         formset = SaleItemFormSet(queryset=SaleItem.objects.none())
     
+    # Get all active products with stock and prepare for JSON
+    products = Product.objects.filter(is_active=True, quantity_in_stock__gt=0)
+    products_data = [
+        {
+            'id': product.id,
+            'name': product.name,
+            'price': float(product.price),
+            'quantity_in_stock': product.quantity_in_stock
+        }
+        for product in products
+    ]
+    
     context = {
         'sale_form': sale_form,
         'formset': formset,
-        'products': Product.objects.filter(is_active=True, quantity_in_stock__gt=0),
+        'products': products_data,
     }
     return render(request, 'sales/sale_form.html', context)
 
 @login_required
 def sale_edit(request, pk):
     sale = get_object_or_404(Sale, pk=pk)
-    SaleItemFormSet = modelformset_factory(SaleItem, form=SaleItemForm, extra=1)
-    
     if request.method == 'POST':
         sale_form = SaleForm(request.POST, instance=sale)
         formset = SaleItemFormSet(request.POST, queryset=sale.items.all())
         
         if sale_form.is_valid() and formset.is_valid():
-            sale = sale_form.save()
+            sale = sale_form.save(commit=False)
             
-            # Delete removed items
-            for item in sale.items.all():
-                if item not in formset.save(commit=False):
-                    item.delete()
-            
-            # Save new and updated items
+            # Calculate total amount from formset
             total_amount = 0
-            for form in formset:
-                if form.cleaned_data:
-                    sale_item = form.save(commit=False)
-                    sale_item.sale = sale
-                    sale_item.save()
-                    total_amount += sale_item.total_price
+            instances = formset.save(commit=False)
             
+            # Handle deleted forms
+            for obj in formset.deleted_objects:
+                obj.delete()
+            
+            # Calculate total from all items
+            for instance in instances:
+                quantity = instance.quantity
+                unit_price = instance.unit_price
+                discount_percentage = instance.discount_percentage
+                
+                # Calculate item total with discount
+                subtotal = quantity * unit_price
+                discount = subtotal * (discount_percentage / 100)
+                total_amount += subtotal - discount
+            
+            # Set the total amount before saving
             sale.total_amount = total_amount
             sale.save()
             
-            messages.success(request, 'Sale updated successfully!')
-            return redirect('sales:detail', pk=sale.pk)
+            # Now save all the items
+            for instance in instances:
+                instance.sale = sale
+                instance.save()
+            
+            messages.success(request, 'Sale updated successfully.')
+            return redirect('sales:list')
     else:
         sale_form = SaleForm(instance=sale)
         formset = SaleItemFormSet(queryset=sale.items.all())
     
+    # Get all active products with stock and prepare for JSON
+    products = Product.objects.filter(is_active=True, quantity_in_stock__gt=0)
+    products_data = [
+        {
+            'id': product.id,
+            'name': product.name,
+            'price': float(product.price),
+            'quantity_in_stock': product.quantity_in_stock
+        }
+        for product in products
+    ]
+    
     context = {
         'sale_form': sale_form,
         'formset': formset,
-        'sale': sale,
-        'products': Product.objects.filter(is_active=True),
+        'products': products_data,
     }
     return render(request, 'sales/sale_form.html', context)
 

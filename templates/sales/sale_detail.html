@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Sale Details - #{{ sale.id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">Sale Details #{{ sale.id }}</h3>
+            <div>
+                <a href="{% url 'sales:print_invoice' sale.id %}" class="btn btn-outline-primary" target="_blank">
+                    <i class="fas fa-print"></i> Print Invoice
+                </a>
+                <a href="{% url 'sales:download_invoice' sale.id %}" class="btn btn-outline-success">
+                    <i class="fas fa-download"></i> Download Invoice
+                </a>
+                <a href="{% url 'sales:update' sale.id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5>Customer Information</h5>
+                    <p><strong>Name:</strong> {{ sale.customer_name }}</p>
+                    <p><strong>Contact:</strong> {{ sale.customer_contact|default:"Not provided" }}</p>
+                    <p><strong>Created By:</strong> {{ sale.created_by.get_full_name|default:sale.created_by.username }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Sale Information</h5>
+                    <p><strong>Date:</strong> {{ sale.created_at|date:"F j, Y, g:i a" }}</p>
+                    <p><strong>Payment Method:</strong> {{ sale.get_payment_method_display }}</p>
+                    <p><strong>Total Amount:</strong> ${{ sale.total_amount|floatformat:2 }}</p>
+                </div>
+            </div>
+
+            <h5>Sale Items</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Discount</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in sale.items.all %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>${{ item.unit_price|floatformat:2 }}</td>
+                            <td>{{ item.discount_percentage }}%</td>
+                            <td>${{ item.total_price|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>Total:</strong></td>
+                            <td><strong>${{ sale.total_amount|floatformat:2 }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            {% if sale.notes %}
+            <div class="mt-4">
+                <h5>Notes</h5>
+                <p class="mb-0">{{ sale.notes|linebreaks }}</p>
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'sales:list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Sales List
+            </a>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                <i class="fas fa-trash"></i> Delete Sale
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this sale? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{% url 'sales:delete' sale.id %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
