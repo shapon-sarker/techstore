@@ -1,0 +1,204 @@
+<!-- Sales Summary Cards -->
+<div class="row g-4 mb-4">
+    <!-- Today's Sales -->
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card text-white bg-primary h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-title mb-0">Today's Sales</h6>
+                        <h2 class="mt-2 mb-0">${{ sales_summary.today_sales.total|default:0|floatformat:2 }}</h2>
+                        <small>Orders: {{ sales_summary.today_sales.count|default:0 }}</small>
+                    </div>
+                    <div class="avatar avatar-stats bg-translucent-primary">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- This Week's Sales -->
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card text-white bg-success h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-title mb-0">This Week's Sales</h6>
+                        <h2 class="mt-2 mb-0">${{ sales_summary.week_sales.total|default:0|floatformat:2 }}</h2>
+                        <small>Orders: {{ sales_summary.week_sales.count|default:0 }}</small>
+                    </div>
+                    <div class="avatar avatar-stats bg-translucent-success">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- This Month's Sales -->
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card text-white bg-info h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-title mb-0">This Month's Sales</h6>
+                        <h2 class="mt-2 mb-0">${{ sales_summary.month_sales.total|default:0|floatformat:2 }}</h2>
+                        <small>Orders: {{ sales_summary.month_sales.count|default:0 }}</small>
+                    </div>
+                    <div class="avatar avatar-stats bg-translucent-info">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <!-- Sales Trend Chart -->
+    <div class="col-12 col-xl-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Sales Trend (Last 30 Days)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="salesTrendChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Status Chart -->
+    <div class="col-12 col-xl-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Payment Status</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="paymentStatusChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Products and Recent Sales -->
+<div class="row mb-4">
+    <!-- Top Products -->
+    <div class="col-12 col-xl-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Top Selling Products</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-end">Sold</th>
+                                <th class="text-end">Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in top_products %}
+                            <tr>
+                                <td>{{ product.name }}</td>
+                                <td class="text-end">{{ product.total_sold|default:0 }}</td>
+                                <td class="text-end">${{ product.revenue|default:0|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center">No sales data available</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Sales -->
+    <div class="col-12 col-xl-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Sales</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Invoice</th>
+                                <th>Customer</th>
+                                <th class="text-end">Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in recent_sales %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'sales:detail' sale.id %}">#{{ sale.invoice_number }}</a>
+                                </td>
+                                <td>{{ sale.customer_name }}</td>
+                                <td class="text-end">${{ sale.total_amount|floatformat:2 }}</td>
+                                <td>
+                                    <span class="badge {% if sale.payment_status == 'PAID' %}bg-success{% elif sale.payment_status == 'PARTIAL' %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {{ sale.get_payment_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">No recent sales</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Low Stock Alerts -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Low Stock Alerts</h5>
+        <a href="{% url 'inventory:stock_level_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th class="text-end">Current Stock</th>
+                        <th class="text-end">Reorder Point</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stock in low_stock_products %}
+                    <tr>
+                        <td>{{ stock.product.name }}</td>
+                        <td class="text-end">{{ stock.quantity }}</td>
+                        <td class="text-end">{{ stock.reorder_point }}</td>
+                        <td>
+                            <span class="badge {% if stock.quantity == 0 %}bg-danger{% else %}bg-warning{% endif %}">
+                                {% if stock.quantity == 0 %}Out of Stock{% else %}Low Stock{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">No low stock alerts</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div> 
